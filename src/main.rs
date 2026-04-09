@@ -1,3 +1,5 @@
+use std::process;
+
 mod tetris;
 
 fn main() {
