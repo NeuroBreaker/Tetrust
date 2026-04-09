@@ -1,10 +1,9 @@
 use std::process;
 
 mod tetris;
+mod draw;
 
 fn main() {
-    let result = tetris::run().unwrap_or_else(|err| {
-        println!("{err}");
-        process::exit(1);
-    });
+    let game = tetris::Game::new();
+    let result = game.run();
 }
