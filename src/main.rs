@@ -3,7 +3,9 @@ use std::process;
 mod tetris;
 mod draw;
 
+use tetris::Game;
+
 fn main() {
-    let game = tetris::Game::new();
+    let game: Game<10, 20> = Game::new();
     let result = game.run();
 }
