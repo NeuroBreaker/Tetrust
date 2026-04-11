@@ -1,10 +1,3 @@
-use std::thread;
-use crossterm::{
-    event::{
-        read,
-    },
-};
-use colored::{Colorize, Color};
 use rand::random_range;
 
 use crate::draw::Draw;
@@ -71,29 +64,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
         self.game_over = false;
         self.board = [[0u8; W]; H];
         self.score = 0;
-    }
-
-    fn check_collision(&self, x: i32, y: i32, piece: &[&[u8]]) -> bool {
-        for (row_idx, row) in piece.iter().enumerate() {
-            for (col_idx, &cell_value) in row.iter().enumerate() {
-                if cell_value != 0 {
-                    let board_x = x + col_idx as i32;
-                    let board_y = y + row_idx as i32;
-
-                    if board_x < 0 || board_x >= self.width as i32 || board_y >= self.height as i32 {
-                        return true;
-                    }
-
-                    if board_y >= 0 {
-                        if self.board[board_y as usize][board_x as usize] != 0 {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-
-        false
+        self.spawn_piece();
     }
 
     fn spawn_piece(&mut self) {
@@ -136,73 +107,63 @@ impl<const W: usize, const H: usize> Game<W, H> {
         self.spawn_piece();
     }
 
+    fn check_collision(&self, x: i32, y: i32, piece: &[&[u8]]) -> bool {
+        for (row_idx, row) in piece.iter().enumerate() {
+            for (col_idx, &cell_value) in row.iter().enumerate() {
+                if cell_value != 0 {
+                    let board_x = x + col_idx as i32;
+                    let board_y = y + row_idx as i32;
+
+                    if board_x < 0 || board_x >= self.width as i32 || board_y >= self.height as i32 {
+                        return true;
+                    }
+
+                    if board_y >= 0 
+                       && self.board[board_y as usize][board_x as usize] != 0
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
     fn clear_lines(&mut self) {
         let mut lines_cleared = 0;
 
-        for mut row in self.height-1..=0 {
-            let mut is_full = true;
+        for row in (0..self.height).rev() {
+            let is_full_line = self.board[row].iter().all(|&cell| cell != 0);
 
-            for col in 0..self.width {
-                if self.board[row as usize][col as usize] == 0 {
-                    is_full = false;
-                    break;
-                }
-            }
-
-            if is_full {
+            if is_full_line {
                 lines_cleared += 1;
-                for r in row..0 {
-                    for c in 0..self.width {
-                        //self.board[r as usize][c as usize] = 
-                    }
+
+                for row_move in (1..=row).rev() {
+                    self.board[row_move] = self.board[row_move - 1];
                 }
-                row += 1;
+                self.board[0].fill(0);
             }
         }
 
         if lines_cleared > 0 {
-            self.score += lines_cleared as u128 * lines_cleared as u128 * 100;
+            self.score += lines_cleared * lines_cleared * 100
         }
     }
 
-    fn get_color(&self, index: usize) -> Color {
-        match index {
-            1 => Color::Cyan,
-            2 => Color::Yellow,
-            3 => Color::Magenta,
-            4 => Color::Green,
-            5 => Color::Red,
-            6 => Color::Blue,
-            7 => Color::BrightYellow,
-            _ => Color::White,
-        }
-    }
-
-    let input_thread = thread::spawn(move || {
-        loop {
-            match read()? {
-                Event::Key(event) => println!("{:?}", event),
-            }
-        }
-    })
-
-    pub fn run(&self) -> Result<u8, &'static str> {
-        let handle_input = input_thread.join();
+    pub fn run(&mut self) -> Result<u8, &'static str> {
         let desk = Draw::new();
+        self.new_game();
 
-        loop {
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input).unwrap();
-
-            println!("{0}", "123".color(Color::Red));
-            desk.draw_top(self.width);
-            desk.draw_bottom(self.width);
-
-            println!("{input}");
-
-            if c {
-                break;
+        while !self.game_over {
+            if self.current_piece.is_none() { continue };
+            if !self.check_collision(self.current_x, self.current_y + 1, self.current_piece.as_ref().unwrap().shape) {
+                self.current_y += 1;
+            } else {
+                self.place_piece();
             }
+            desk.draw(self.board, self.current_piece.as_ref().unwrap().shape, self.score, self.current_color, self.current_x, self.current_y);
+            std::thread::sleep(std::time::Duration::from_secs(1));
         }
 
         Ok(0)
@@ -215,13 +176,7 @@ mod tests {
 
     #[test]
     fn run_works() {
-        let game: Game<10, 20> = Game::new();
+        let mut game: Game<10, 20> = Game::new();
         assert_eq!(game.run(), Ok(0));
-    }
-
-    #[test]
-    fn color() {
-        println!("{0}", "123".color(Color::Red));
-        assert_eq!(1, 1);
     }
 }
