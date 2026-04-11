@@ -1,3 +1,9 @@
+use std::thread;
+use crossterm::{
+    event::{
+        read,
+    },
+};
 use colored::{Colorize, Color};
 use rand::random_range;
 
@@ -17,6 +23,7 @@ pub struct Game<const W: usize, const H: usize> {
     current_color: u8,
     current_x: i32,
     current_y: i32,
+    score: u128,
     game_over: bool,
 }
 
@@ -55,8 +62,15 @@ impl<const W: usize, const H: usize> Game<W, H> {
             current_color: 0,
             current_x: 0,
             current_y: 0,
+            score: 0,
             game_over: false,
         }
+    }
+
+    fn new_game(&mut self) {
+        self.game_over = false;
+        self.board = [[0u8; W]; H];
+        self.score = 0;
     }
 
     fn check_collision(&self, x: i32, y: i32, piece: &[&[u8]]) -> bool {
@@ -122,7 +136,33 @@ impl<const W: usize, const H: usize> Game<W, H> {
         self.spawn_piece();
     }
 
-    fn clear_lines(&self) {
+    fn clear_lines(&mut self) {
+        let mut lines_cleared = 0;
+
+        for mut row in self.height-1..=0 {
+            let mut is_full = true;
+
+            for col in 0..self.width {
+                if self.board[row as usize][col as usize] == 0 {
+                    is_full = false;
+                    break;
+                }
+            }
+
+            if is_full {
+                lines_cleared += 1;
+                for r in row..0 {
+                    for c in 0..self.width {
+                        //self.board[r as usize][c as usize] = 
+                    }
+                }
+                row += 1;
+            }
+        }
+
+        if lines_cleared > 0 {
+            self.score += lines_cleared as u128 * lines_cleared as u128 * 100;
+        }
     }
 
     fn get_color(&self, index: usize) -> Color {
@@ -138,8 +178,16 @@ impl<const W: usize, const H: usize> Game<W, H> {
         }
     }
 
+    let input_thread = thread::spawn(move || {
+        loop {
+            match read()? {
+                Event::Key(event) => println!("{:?}", event),
+            }
+        }
+    })
+
     pub fn run(&self) -> Result<u8, &'static str> {
-        let c = false;
+        let handle_input = input_thread.join();
         let desk = Draw::new();
 
         loop {

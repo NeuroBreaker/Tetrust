@@ -1,3 +1,5 @@
+use crossterm::terminal::{self, ClearType};
+
 pub struct Draw {
     top: char,
     bottom: char,
@@ -40,6 +42,6 @@ impl Draw {
     } 
 
     pub fn draw_center(&self, width: usize) {
-        
+        terminal::Clear(ClearType::All); 
     }
 }
