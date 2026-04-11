@@ -1,6 +1,7 @@
 use rand::random_range;
 
 use crate::draw::Draw;
+use std::io::{self, Write};
 
 #[derive(Clone)]
 struct Piece {
@@ -81,21 +82,34 @@ impl<const W: usize, const H: usize> Game<W, H> {
         self.current_piece = Some(piece);
     }
 
+    //fn rotate_piece(&self, piece: &[&[u8]]) {
+    //    let rows = piece.len();
+    //    let cols = piece[0].len();
+    //    let mut rotated_piece = piece;
+    //    for (row_idx, row) in piece.iter().enumerate() {
+    //        for (col_idx, cell) in row.iter().enumerate() {
+    //            rotated_piece[col_idx][rows - 1 - row_idx] = piece[row_idx][col_idx];
+    //        }
+    //    }
+    //}
+
     fn place_piece(&mut self) {
         if self.current_piece.is_none() {
-            return
+            return;
         }
 
         let piece = self.current_piece.as_ref().unwrap().shape;
 
-        for (row_idx, row) in piece.iter().enumerate()  {
+        for (row_idx, row) in piece.iter().enumerate() {
             for (col_idx, &cell_value) in row.iter().enumerate() {
                 if cell_value != 0 {
                     let board_x = self.current_x + col_idx as i32;
                     let board_y = self.current_y + row_idx as i32;
 
-                    if board_y >= 0 && board_y < self.height as i32
-                       && board_x >= 0 && board_x < self.width as i32
+                    if board_y >= 0
+                        && board_y < self.height as i32
+                        && board_x >= 0
+                        && board_x < self.width as i32
                     {
                         self.board[board_y as usize][board_x as usize] = self.current_color;
                     }
@@ -114,13 +128,12 @@ impl<const W: usize, const H: usize> Game<W, H> {
                     let board_x = x + col_idx as i32;
                     let board_y = y + row_idx as i32;
 
-                    if board_x < 0 || board_x >= self.width as i32 || board_y >= self.height as i32 {
+                    if board_x < 0 || board_x >= self.width as i32 || board_y >= self.height as i32
+                    {
                         return true;
                     }
 
-                    if board_y >= 0 
-                       && self.board[board_y as usize][board_x as usize] != 0
-                    {
+                    if board_y >= 0 && self.board[board_y as usize][board_x as usize] != 0 {
                         return true;
                     }
                 }
@@ -156,13 +169,26 @@ impl<const W: usize, const H: usize> Game<W, H> {
         self.new_game();
 
         while !self.game_over {
-            if self.current_piece.is_none() { continue };
-            if !self.check_collision(self.current_x, self.current_y + 1, self.current_piece.as_ref().unwrap().shape) {
+            if self.current_piece.is_none() {
+                continue;
+            };
+            if !self.check_collision(
+                self.current_x,
+                self.current_y + 1,
+                self.current_piece.as_ref().unwrap().shape,
+            ) {
                 self.current_y += 1;
             } else {
                 self.place_piece();
             }
-            desk.draw(self.board, self.current_piece.as_ref().unwrap().shape, self.score, self.current_color, self.current_x, self.current_y);
+            desk.draw(
+                self.board,
+                self.current_piece.as_ref().unwrap().shape,
+                self.score,
+                self.current_color,
+                self.current_x,
+                self.current_y,
+            );
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
 
