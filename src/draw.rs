@@ -2,9 +2,9 @@ use crossterm::{
     cursor::MoveTo,
     style::{Color, Print, ResetColor, SetForegroundColor},
     terminal::{Clear, ClearType},
-    execute,
+    execute, queue,
 };
-use std::io::stdout;
+use std::io::{self, stdout, Write};
 
 pub struct Draw {
     top: char,
@@ -47,7 +47,7 @@ impl Draw {
     pub fn move_piece<const W: usize, const H: usize>(
         &self,
         board: &mut [[u8; W]; H],
-        piece: &[&[u8]],
+        piece: &[[u8; 4]; 4],
         current_x: i32,
         current_y: i32,
         color: u8,
@@ -67,52 +67,64 @@ impl Draw {
     }
 
     pub fn draw_bottom(&self, width: usize) {
-        print!("{0}", self.bottom_left);
+        let mut stdout = stdout();
+
+        queue!(stdout, Print(self.bottom_left)).unwrap();
         for _ in 0..(width * 2) {
-            print!("{0}", self.bottom)
+            queue!(stdout, Print(self.bottom)).unwrap();
         }
-        println!("{0}", self.bottom_right);
+        queue!(stdout, Print(self.bottom_right)).unwrap();
+
+        stdout.flush().unwrap();
     }
 
     pub fn draw_top(&self, width: usize) {
-        print!("{0}", self.top_left);
+        let mut stdout = stdout();
+
+        queue!(stdout, Print(self.top_left)).unwrap();
         for _ in 0..(width * 2) {
-            print!("{0}", self.top)
+            queue!(stdout, Print(self.top)).unwrap();
         }
-        println!("{0}", self.top_right);
+        queue!(stdout, Print(self.top_right)).unwrap();
+
+        stdout.flush().unwrap();
     }
 
     pub fn draw_center<const W: usize, const H: usize>(&self, board: &[[u8; W]; H]) {
+        let mut stdout = stdout();
         for row in board.iter() {
             print!("{0}", self.left);
             for &cell in row.iter() {
                 if cell == 0 {
                     print!("  ");
                 } else {
-                    execute!(
-                        stdout(),
+                    queue!(
+                        stdout,
                         SetForegroundColor(self.get_color(cell)),
                         Print("██"),
                         ResetColor
-                    )
-                    .unwrap();
-                    //print!("██");
+                    ).unwrap();
                 }
             }
-            println!("{0}", self.right);
+            queue!(stdout, Print(self.right)).unwrap();
+            queue!(stdout, ResetColor, Print("\n"),).unwrap()
         }
     }
 
     pub fn draw<const W: usize, const H: usize>(
         &self,
         board: [[u8; W]; H],
-        piece: &[&[u8]],
+        piece: &[[u8; 4]; 4],
         score: u128,
         color: u8,
         x: i32,
         y: i32,
     ) {
-        execute!(stdout(), MoveTo(0, 0), Clear(ClearType::FromCursorDown)).unwrap();
+        let mut stdout = io::stdout();
+        execute!(stdout, Clear(ClearType::All)).unwrap();
+
+        queue!(stdout, MoveTo(0, 0)).unwrap();
+
         let mut draw_board = board;
         self.move_piece(&mut draw_board, piece, x, y, color);
 

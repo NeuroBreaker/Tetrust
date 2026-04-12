@@ -2,9 +2,23 @@ use rand::random_range;
 
 use crate::draw::Draw;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 struct Piece {
-    shape: &'static [&'static [u8]],
+    shape: [[u8; 4]; 4],
+    size: usize,
+}
+
+impl Piece {
+    pub fn new(piece: &[&[u8]], size: usize) -> Self {
+        let mut shape = [[0u8; 4]; 4];
+        for row in 0..piece.len() {
+            for col in 0..piece[0].len() {
+                shape[row][col] = piece[row][col];
+            }
+        }
+
+        Self { shape, size }
+    }
 }
 
 pub struct Game<const W: usize, const H: usize> {
@@ -23,27 +37,13 @@ pub struct Game<const W: usize, const H: usize> {
 impl<const W: usize, const H: usize> Game<W, H> {
     pub fn new() -> Self {
         let pieces: [Piece; 7] = [
-            Piece {
-                shape: &[&[1, 1, 1, 1]],
-            },
-            Piece {
-                shape: &[&[1, 1], &[1, 1]],
-            },
-            Piece {
-                shape: &[&[0, 1, 0], &[1, 1, 1]],
-            },
-            Piece {
-                shape: &[&[0, 1, 1], &[1, 1, 0]],
-            },
-            Piece {
-                shape: &[&[1, 1, 0], &[0, 1, 1]],
-            },
-            Piece {
-                shape: &[&[1, 0, 0], &[1, 1, 1]],
-            },
-            Piece {
-                shape: &[&[0, 0, 1], &[1, 1, 1]],
-            },
+            Piece::new(&[&[1, 1, 1, 1]], 4),
+            Piece::new(&[&[1, 1], &[1, 1]], 2),
+            Piece::new(&[&[0, 1, 0], &[1, 1, 1]], 3),
+            Piece::new(&[&[0, 1, 1], &[1, 1, 0]], 3),
+            Piece::new(&[&[1, 1, 0], &[0, 1, 1]], 3),
+            Piece::new(&[&[1, 0, 0], &[1, 1, 1]], 3),
+            Piece::new(&[&[0, 0, 1], &[1, 1, 1]], 3),
         ];
 
         Self {
@@ -60,6 +60,28 @@ impl<const W: usize, const H: usize> Game<W, H> {
         }
     }
 
+    fn check_collision(&self, x: i32, y: i32, piece: &[[u8; 4]; 4]) -> bool {
+        for (row_idx, row) in piece.iter().enumerate() {
+            for (col_idx, &cell_value) in row.iter().enumerate() {
+                if cell_value != 0 {
+                    let board_x = x + col_idx as i32;
+                    let board_y = y + row_idx as i32;
+
+                    if board_x < 0 || board_x >= self.width as i32 || board_y >= self.height as i32
+                    {
+                        return true;
+                    }
+
+                    if board_y >= 0 && self.board[board_y as usize][board_x as usize] != 0 {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
     fn new_game(&mut self) {
         self.game_over = false;
         self.board = [[0u8; W]; H];
@@ -69,33 +91,70 @@ impl<const W: usize, const H: usize> Game<W, H> {
 
     fn spawn_piece(&mut self) {
         let piece_index = random_range(0..self.pieces.len());
-        let piece = self.pieces[piece_index].clone();
-        let piece_width = piece.shape[0].len();
+        let piece = self.pieces[piece_index];
         self.current_color = piece_index as u8 + 1;
-        self.current_x = self.width as i32 / 2 - piece_width as i32 / 2;
+        self.current_x = self.width as i32 / 2 - 2;
         self.current_y = -1;
 
-        if self.check_collision(self.current_x, self.current_y, piece.shape) {
+        if self.check_collision(self.current_x, self.current_y, &piece.shape) {
             self.game_over = true;
         }
         self.current_piece = Some(piece);
     }
 
+    fn rotate_piece_right(&mut self) {
+        if let Some(mut piece) = self.current_piece {
+            let size = piece.size;
+            let mut rotated_piece = [[0u8; 4]; 4];
+
+            for (row_idx, row) in piece.shape.iter().enumerate().take(size) {
+                for (col_idx, &cell) in row.iter().enumerate().take(size) {
+                    rotated_piece[col_idx][size - 1 - row_idx] = cell;
+                }
+            }
+
+            if !self.check_collision(self.current_x, self.current_y, &rotated_piece) {
+                piece.shape = rotated_piece;
+                self.current_piece = Some(piece);
+            }
+        }
+    }
+
+    fn rotate_piece_left(&mut self) {
+        if let Some(mut piece) = self.current_piece {
+            let size = piece.size;
+            let mut rotated_piece = [[0u8; 4]; 4];
+
+            for (row_idx, row) in piece.shape.iter().enumerate().take(size) {
+                for (col_idx, &cell) in row.iter().enumerate().take(size) {
+                    rotated_piece[col_idx][size - 1 - row_idx] = cell;
+                }
+            }
+
+            if !self.check_collision(self.current_x, self.current_y, &rotated_piece) {
+                piece.shape = rotated_piece;
+                self.current_piece = Some(piece);
+            }
+        }
+    }
+
     fn place_piece(&mut self) {
         if self.current_piece.is_none() {
-            return
+            return;
         }
 
         let piece = self.current_piece.as_ref().unwrap().shape;
 
-        for (row_idx, row) in piece.iter().enumerate()  {
+        for (row_idx, row) in piece.iter().enumerate() {
             for (col_idx, &cell_value) in row.iter().enumerate() {
                 if cell_value != 0 {
                     let board_x = self.current_x + col_idx as i32;
                     let board_y = self.current_y + row_idx as i32;
 
-                    if board_y >= 0 && board_y < self.height as i32
-                       && board_x >= 0 && board_x < self.width as i32
+                    if board_y >= 0
+                        && board_y < self.height as i32
+                        && board_x >= 0
+                        && board_x < self.width as i32
                     {
                         self.board[board_y as usize][board_x as usize] = self.current_color;
                     }
@@ -105,29 +164,6 @@ impl<const W: usize, const H: usize> Game<W, H> {
 
         self.clear_lines();
         self.spawn_piece();
-    }
-
-    fn check_collision(&self, x: i32, y: i32, piece: &[&[u8]]) -> bool {
-        for (row_idx, row) in piece.iter().enumerate() {
-            for (col_idx, &cell_value) in row.iter().enumerate() {
-                if cell_value != 0 {
-                    let board_x = x + col_idx as i32;
-                    let board_y = y + row_idx as i32;
-
-                    if board_x < 0 || board_x >= self.width as i32 || board_y >= self.height as i32 {
-                        return true;
-                    }
-
-                    if board_y >= 0 
-                       && self.board[board_y as usize][board_x as usize] != 0
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        false
     }
 
     fn clear_lines(&mut self) {
@@ -156,13 +192,29 @@ impl<const W: usize, const H: usize> Game<W, H> {
         self.new_game();
 
         while !self.game_over {
-            if self.current_piece.is_none() { continue };
-            if !self.check_collision(self.current_x, self.current_y + 1, self.current_piece.as_ref().unwrap().shape) {
+            if self.current_piece.is_none() {
+                continue;
+            };
+            if !self.check_collision(
+                self.current_x,
+                self.current_y + 1,
+                &self.current_piece.as_ref().unwrap().shape,
+            ) {
                 self.current_y += 1;
             } else {
                 self.place_piece();
             }
-            desk.draw(self.board, self.current_piece.as_ref().unwrap().shape, self.score, self.current_color, self.current_x, self.current_y);
+            desk.draw(
+                self.board,
+                &self.current_piece.as_ref().unwrap().shape,
+                self.score,
+                self.current_color,
+                self.current_x,
+                self.current_y,
+            );
+            self.rotate_piece_right();
+            self.rotate_piece_right();
+            self.rotate_piece_left();
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
 
