@@ -47,7 +47,7 @@ impl Draw {
     pub fn move_piece<const W: usize, const H: usize>(
         &self,
         board: &mut [[u8; W]; H],
-        piece: &[&[u8]],
+        piece: &[[u8; 4]; 4],
         current_x: i32,
         current_y: i32,
         color: u8,
@@ -114,7 +114,7 @@ impl Draw {
     pub fn draw<const W: usize, const H: usize>(
         &self,
         board: [[u8; W]; H],
-        piece: &[&[u8]],
+        piece: &[[u8; 4]; 4],
         score: u128,
         color: u8,
         x: i32,
