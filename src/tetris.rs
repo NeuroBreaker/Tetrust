@@ -1,4 +1,6 @@
+use crossterm::event::{self, Event, KeyCode};
 use rand::random_range;
+use std::{sync::mpsc, thread, time::Duration};
 
 use crate::draw::Draw;
 
@@ -187,8 +189,26 @@ impl<const W: usize, const H: usize> Game<W, H> {
         }
     }
 
-    pub fn run(&mut self) -> Result<u8, &'static str> {
+    fn handle_input(&mut self) {
+        if event::poll(Duration::from_millis(10)).unwrap() {
+            // проверяем, нажата ли клавиша (ждем 10мс)
+            if let Event::Key(key_event) = event::read().unwrap() {
+                match key_event.code {
+                    KeyCode::Left => self.rotate_piece_left(),
+                    KeyCode::Char('w') => self.rotate_piece_right(),
+                    KeyCode::Esc => return,
+                    _ => (),
+                }
+            }
+        }
+    }
+
+    pub fn run(&mut self) -> Result<i32, &'static str> {
         let desk = Draw::new();
+        //let (tx, rx) = mpsc::channel();
+
+        //thread::spawn(move || self.handle_input());
+
         self.new_game();
 
         while !self.game_over {
@@ -212,10 +232,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
                 self.current_x,
                 self.current_y,
             );
-            self.rotate_piece_right();
-            self.rotate_piece_right();
-            self.rotate_piece_left();
-            std::thread::sleep(std::time::Duration::from_secs(1));
+            thread::sleep(Duration::from_secs(1));
         }
 
         Ok(0)
