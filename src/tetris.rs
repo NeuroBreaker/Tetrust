@@ -1,7 +1,6 @@
 use rand::random_range;
 
 use crate::draw::Draw;
-use std::io::{self, Write};
 
 #[derive(Clone)]
 struct Piece {
@@ -82,16 +81,19 @@ impl<const W: usize, const H: usize> Game<W, H> {
         self.current_piece = Some(piece);
     }
 
-    //fn rotate_piece(&self, piece: &[&[u8]]) {
-    //    let rows = piece.len();
-    //    let cols = piece[0].len();
-    //    let mut rotated_piece = piece;
-    //    for (row_idx, row) in piece.iter().enumerate() {
-    //        for (col_idx, cell) in row.iter().enumerate() {
-    //            rotated_piece[col_idx][rows - 1 - row_idx] = piece[row_idx][col_idx];
-    //        }
-    //    }
-    //}
+    fn rotate_piece<const WIDTH: usize, const HEIGHT: usize>(
+        &self,
+        piece: [[u8; WIDTH]; HEIGHT],
+    ) {
+        let mut rotated_piece = [[0u8; WIDTH]; HEIGHT];
+        for (row_idx, row) in piece.iter().enumerate() {
+            for (col_idx, _) in row.iter().enumerate() {
+                rotated_piece[col_idx][HEIGHT - 1 - row_idx] = piece[row_idx][col_idx];
+            }
+        }
+
+        piece = rotated_piece;
+    }
 
     fn place_piece(&mut self) {
         if self.current_piece.is_none() {
