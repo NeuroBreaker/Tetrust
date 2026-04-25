@@ -137,7 +137,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
 
             for (row_idx, row) in piece.shape.iter().enumerate().take(size) {
                 for (col_idx, &cell) in row.iter().enumerate().take(size) {
-                    rotated_piece[col_idx][size - 1 - row_idx] = cell;
+                    rotated_piece[size - 1 - col_idx][row_idx] = cell;
                 }
             }
 
@@ -180,9 +180,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
         let mut lines_cleared = 0;
 
         for row in (0..self.height).rev() {
-            let is_full_line = self.board[row].iter().all(|&cell| cell != 0);
-
-            if is_full_line {
+            while self.board[row].iter().all(|&cell| cell != 0) {
                 lines_cleared += 1;
 
                 for row_move in (1..=row).rev() {
@@ -265,7 +263,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
 
             if last_tick.elapsed() >= tick_rate {
                 let _ = desk.draw(
-                    self.board,
+                    &self.board,
                     &self.current_piece.as_ref().unwrap().shape,
                     self.score,
                     self.current_color,

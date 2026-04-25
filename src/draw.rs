@@ -1,5 +1,5 @@
 use crossterm::{
-    cursor::MoveTo,
+    cursor::{Hide, MoveTo},
     queue,
     style::{Color, Print, ResetColor, SetForegroundColor},
 };
@@ -43,7 +43,7 @@ impl Draw {
         }
     }
 
-    pub fn move_piece<const W: usize, const H: usize>(
+    pub fn overlay_piece<const W: usize, const H: usize>(
         &self,
         board: &mut [[u8; W]; H],
         piece: &[[u8; 4]; 4],
@@ -57,7 +57,7 @@ impl Draw {
                     let y = current_y + row_idx as i32;
                     let x = current_x + col_idx as i32;
 
-                    if y >= 0 && y < board.len() as i32 && x >= 0 && x < board[0].len() as i32 {
+                    if y >= 0 && y < H as i32 && x >= 0 && x < W as i32 {
                         board[y as usize][x as usize] = color;
                     }
                 }
@@ -76,11 +76,13 @@ impl Draw {
     }
 
     pub fn draw_top<W: Write>(&self, stdout: &mut W, width: usize) -> io::Result<()> {
+        queue!(stdout, MoveTo(0, 0), Hide)?;
+
         queue!(stdout, Print(self.top_left))?;
         for _ in 0..(width * 2) {
             queue!(stdout, Print(self.top))?;
         }
-        queue!(stdout, Print(self.top_right), Print("\n\r"))?;
+        queue!(stdout, Print(self.top_right), Print("\r\n"))?;
 
         Ok(())
     }
@@ -94,7 +96,7 @@ impl Draw {
             queue!(stdout, Print(self.left))?;
             for &cell in row.iter() {
                 if cell == 0 {
-                    print!("  ");
+                    queue!(stdout, Print("  "))?;
                 } else {
                     queue!(
                         stdout,
@@ -104,7 +106,7 @@ impl Draw {
                     )?;
                 }
             }
-            queue!(stdout, Print(self.right), Print("\n\r"))?;
+            queue!(stdout, Print(self.right), Print("\r\n"))?;
         }
 
         Ok(())
@@ -112,38 +114,37 @@ impl Draw {
 
     pub fn draw<const W: usize, const H: usize>(
         &self,
-        board: [[u8; W]; H],
+        board: &[[u8; W]; H],
         piece: &[[u8; 4]; 4],
         score: u128,
         color: u8,
         x: i32,
         y: i32,
     ) -> io::Result<()> {
-        let mut stdout = io::stdout();
+        let stdout = io::stdout();
+        let mut handle = io::BufWriter::new(stdout.lock());
 
-        queue!(stdout, MoveTo(0, 0))?;
-
-        let mut draw_board = board;
-        self.move_piece(&mut draw_board, piece, x, y, color);
+        let mut draw_board = *board;
+        self.overlay_piece(&mut draw_board, piece, x, y, color);
 
         let width = W;
-        self.draw_top(&mut stdout, width)?;
-        self.draw_center(&mut stdout, &draw_board)?;
-        self.draw_bottom(&mut stdout, width)?;
+        self.draw_top(&mut handle, width)?;
+        self.draw_center(&mut handle, &draw_board)?;
+        self.draw_bottom(&mut handle, width)?;
 
         queue!(
-            stdout,
-            Print(format!("\n\r  Счёт: {}\n\r", score)),
-            Print("\n\r  Управление:\n\r"),
-            Print("  ← → или A D - движение\n\r"),
-            Print("  ↑ или W - поворот вправо\n\r"),
-            Print("  ↓ или S - поворот влево\n\r"),
-            Print("  J - ускорение падения \n\r"),
-            Print("  Пробел - сброс\n\r"),
-            Print("  Esc - выход\n\r")
+            handle,
+            Print(format!("\r\n  Счёт: {}\r\n", score)),
+            Print("\r\n  Управление:\r\n"),
+            Print("  ← → или A D - движение\r\n"),
+            Print("  ↑ или W - поворот вправо\r\n"),
+            Print("  ↓ или S - поворот влево\r\n"),
+            Print("  J - ускорение падения \r\n"),
+            Print("  Пробел - сброс\r\n"),
+            Print("  Esc - выход\r\n")
         )?;
 
-        stdout.flush()?;
+        handle.flush()?;
 
         Ok(())
     }
