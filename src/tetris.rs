@@ -1,4 +1,11 @@
+use crossterm::event::{self, Event, KeyCode};
 use rand::random_range;
+use std::{
+    process,
+    sync::mpsc,
+    thread,
+    time::{Duration, Instant},
+};
 
 use crate::draw::Draw;
 
@@ -187,35 +194,100 @@ impl<const W: usize, const H: usize> Game<W, H> {
         }
     }
 
-    pub fn run(&mut self) -> Result<u8, &'static str> {
+    fn handle_input(&mut self) {
+        if event::poll(Duration::from_millis(10)).unwrap() {
+            if let Event::Key(key_event) = event::read().unwrap() {
+                match key_event.code {
+                    KeyCode::Left | KeyCode::Char('a') => {
+                        if !self.check_collision(
+                            self.current_x - 1,
+                            self.current_y,
+                            &self.current_piece.as_ref().unwrap().shape,
+                        ) {
+                            self.current_x -= 1;
+                        }
+                    }
+                    KeyCode::Right | KeyCode::Char('d') => {
+                        if !self.check_collision(
+                            self.current_x + 1,
+                            self.current_y,
+                            &self.current_piece.as_ref().unwrap().shape,
+                        ) {
+                            self.current_x += 1;
+                        }
+                    }
+                    KeyCode::Down | KeyCode::Char('s') => {
+                        if !self.check_collision(
+                            self.current_x,
+                            self.current_y + 1,
+                            &self.current_piece.as_ref().unwrap().shape,
+                        ) {
+                            self.current_y += 1;
+                        } else {
+                            self.place_piece();
+                        }
+                    }
+                    KeyCode::Enter | KeyCode::Char(' ') => {
+                        while !self.check_collision(
+                            self.current_x,
+                            self.current_y + 1,
+                            &self.current_piece.as_ref().unwrap().shape,
+                        ) {
+                            self.current_y += 1;
+                        }
+                        self.place_piece();
+                    }
+                    KeyCode::Char('w') => self.rotate_piece_right(),
+                    KeyCode::Esc => process::exit(1),
+                    _ => (),
+                }
+            }
+        }
+    }
+
+    pub fn run(&mut self) -> Result<i32, &'static str> {
+        let mut last_tick = Instant::now();
+        let mut drop_tick = Instant::now();
+        let tick_rate = Duration::from_millis(8);
+        let drop_rate = Duration::from_millis(500);
+
         let desk = Draw::new();
+
         self.new_game();
 
         while !self.game_over {
-            if self.current_piece.is_none() {
-                continue;
-            };
-            if !self.check_collision(
-                self.current_x,
-                self.current_y + 1,
-                &self.current_piece.as_ref().unwrap().shape,
-            ) {
-                self.current_y += 1;
-            } else {
-                self.place_piece();
+            self.handle_input();
+
+            if last_tick.elapsed() >= tick_rate {
+                desk.draw(
+                    self.board,
+                    &self.current_piece.as_ref().unwrap().shape,
+                    self.score,
+                    self.current_color,
+                    self.current_x,
+                    self.current_y,
+                );
+
+                last_tick = Instant::now();
             }
-            desk.draw(
-                self.board,
-                &self.current_piece.as_ref().unwrap().shape,
-                self.score,
-                self.current_color,
-                self.current_x,
-                self.current_y,
-            );
-            self.rotate_piece_right();
-            self.rotate_piece_right();
-            self.rotate_piece_left();
-            std::thread::sleep(std::time::Duration::from_secs(1));
+
+            if drop_tick.elapsed() >= drop_rate {
+                if self.current_piece.is_none() {
+                    continue;
+                };
+
+                if !self.check_collision(
+                    self.current_x,
+                    self.current_y + 1,
+                    &self.current_piece.as_ref().unwrap().shape,
+                ) {
+                    self.current_y += 1;
+                } else {
+                    self.place_piece();
+                }
+
+                drop_tick = Instant::now();
+            }
         }
 
         Ok(0)
@@ -229,6 +301,16 @@ mod tests {
     #[test]
     fn run_works() {
         let mut game: Game<10, 20> = Game::new();
-        assert_eq!(game.run(), Ok(0));
+
+        crossterm::terminal::enable_raw_mode().expect("Couldn't turn on raw mode");
+
+        let r = game.run().unwrap_or_else(|err| {
+            eprintln!("{err}");
+            process::exit(1);
+        });
+
+        crossterm::terminal::disable_raw_mode().expect("Couldn't turn on raw mode");
+
+        process::exit(r);
     }
 }

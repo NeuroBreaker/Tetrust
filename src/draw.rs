@@ -4,7 +4,7 @@ use crossterm::{
     terminal::{Clear, ClearType},
     execute, queue,
 };
-use std::io::{self, stdout, Write};
+use std::io::{self, stdout};
 
 pub struct Draw {
     top: char,
@@ -74,8 +74,6 @@ impl Draw {
             queue!(stdout, Print(self.bottom)).unwrap();
         }
         queue!(stdout, Print(self.bottom_right)).unwrap();
-
-        stdout.flush().unwrap();
     }
 
     pub fn draw_top(&self, width: usize) {
@@ -85,9 +83,7 @@ impl Draw {
         for _ in 0..(width * 2) {
             queue!(stdout, Print(self.top)).unwrap();
         }
-        queue!(stdout, Print(self.top_right)).unwrap();
-
-        stdout.flush().unwrap();
+        queue!(stdout, Print(self.top_right), Print("\n\r")).unwrap();
     }
 
     pub fn draw_center<const W: usize, const H: usize>(&self, board: &[[u8; W]; H]) {
@@ -106,8 +102,7 @@ impl Draw {
                     ).unwrap();
                 }
             }
-            queue!(stdout, Print(self.right)).unwrap();
-            queue!(stdout, ResetColor, Print("\n"),).unwrap()
+            queue!(stdout, Print(self.right), Print("\n\r")).unwrap();
         }
     }
 
@@ -133,12 +128,15 @@ impl Draw {
         self.draw_center(&draw_board);
         self.draw_bottom(width);
 
-        println!("\n  Счёт: {score}");
-        println!("\n  Управление:");
-        println!("  ← → или A D - движение");
-        println!("  ↑ или W - поворот");
-        println!("  ↓ или S - ускорить");
-        println!("  Пробел - сброс");
-        println!("  Esc - выход");
+        queue!(
+            stdout,
+            Print(format!("\n\r  Счёт: {}\n\r", score)),
+            Print("\n\r  Управление:\n\r"),
+            Print("  ← → или A D - движение\n\r"),
+            Print("  ↑ или W - поворот\n\r"),
+            Print("  ↓ или S - ускорить\n\r"),
+            Print("  Пробел - сброс\n\r"),
+            Print("  Esc - выход\n\r")
+        ).unwrap();
     }
 }
