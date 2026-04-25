@@ -1,10 +1,9 @@
 use crossterm::{
     cursor::MoveTo,
+    queue,
     style::{Color, Print, ResetColor, SetForegroundColor},
-    terminal::{Clear, ClearType},
-    execute, queue,
 };
-use std::io::{self, stdout};
+use std::io::{self, Write};
 
 pub struct Draw {
     top: char,
@@ -66,30 +65,33 @@ impl Draw {
         }
     }
 
-    pub fn draw_bottom(&self, width: usize) {
-        let mut stdout = stdout();
-
-        queue!(stdout, Print(self.bottom_left)).unwrap();
+    pub fn draw_bottom<W: Write>(&self, stdout: &mut W, width: usize) -> io::Result<()> {
+        queue!(stdout, Print(self.bottom_left))?;
         for _ in 0..(width * 2) {
-            queue!(stdout, Print(self.bottom)).unwrap();
+            queue!(stdout, Print(self.bottom))?;
         }
-        queue!(stdout, Print(self.bottom_right)).unwrap();
+        queue!(stdout, Print(self.bottom_right))?;
+
+        Ok(())
     }
 
-    pub fn draw_top(&self, width: usize) {
-        let mut stdout = stdout();
-
-        queue!(stdout, Print(self.top_left)).unwrap();
+    pub fn draw_top<W: Write>(&self, stdout: &mut W, width: usize) -> io::Result<()> {
+        queue!(stdout, Print(self.top_left))?;
         for _ in 0..(width * 2) {
-            queue!(stdout, Print(self.top)).unwrap();
+            queue!(stdout, Print(self.top))?;
         }
-        queue!(stdout, Print(self.top_right), Print("\n\r")).unwrap();
+        queue!(stdout, Print(self.top_right), Print("\n\r"))?;
+
+        Ok(())
     }
 
-    pub fn draw_center<const W: usize, const H: usize>(&self, board: &[[u8; W]; H]) {
-        let mut stdout = stdout();
+    pub fn draw_center<W: Write, const WIDTH: usize, const HEIGHT: usize>(
+        &self,
+        stdout: &mut W,
+        board: &[[u8; WIDTH]; HEIGHT],
+    ) -> io::Result<()> {
         for row in board.iter() {
-            print!("{0}", self.left);
+            queue!(stdout, Print(self.left))?;
             for &cell in row.iter() {
                 if cell == 0 {
                     print!("  ");
@@ -99,11 +101,13 @@ impl Draw {
                         SetForegroundColor(self.get_color(cell)),
                         Print("██"),
                         ResetColor
-                    ).unwrap();
+                    )?;
                 }
             }
-            queue!(stdout, Print(self.right), Print("\n\r")).unwrap();
+            queue!(stdout, Print(self.right), Print("\n\r"))?;
         }
+
+        Ok(())
     }
 
     pub fn draw<const W: usize, const H: usize>(
@@ -114,29 +118,33 @@ impl Draw {
         color: u8,
         x: i32,
         y: i32,
-    ) {
+    ) -> io::Result<()> {
         let mut stdout = io::stdout();
-        execute!(stdout, Clear(ClearType::All)).unwrap();
 
-        queue!(stdout, MoveTo(0, 0)).unwrap();
+        queue!(stdout, MoveTo(0, 0))?;
 
         let mut draw_board = board;
         self.move_piece(&mut draw_board, piece, x, y, color);
 
         let width = W;
-        self.draw_top(width);
-        self.draw_center(&draw_board);
-        self.draw_bottom(width);
+        self.draw_top(&mut stdout, width)?;
+        self.draw_center(&mut stdout, &draw_board)?;
+        self.draw_bottom(&mut stdout, width)?;
 
         queue!(
             stdout,
             Print(format!("\n\r  Счёт: {}\n\r", score)),
             Print("\n\r  Управление:\n\r"),
             Print("  ← → или A D - движение\n\r"),
-            Print("  ↑ или W - поворот\n\r"),
-            Print("  ↓ или S - ускорить\n\r"),
+            Print("  ↑ или W - поворот вправо\n\r"),
+            Print("  ↓ или S - поворот влево\n\r"),
+            Print("  J - ускорение падения \n\r"),
             Print("  Пробел - сброс\n\r"),
             Print("  Esc - выход\n\r")
-        ).unwrap();
+        )?;
+
+        stdout.flush()?;
+
+        Ok(())
     }
 }

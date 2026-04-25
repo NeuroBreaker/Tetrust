@@ -1,9 +1,12 @@
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::{
+    event::{self, Event, KeyCode},
+    execute,
+    terminal::{Clear, ClearType},
+};
 use rand::random_range;
 use std::{
+    io::stdout,
     process,
-    sync::mpsc,
-    thread,
     time::{Duration, Instant},
 };
 
@@ -195,52 +198,53 @@ impl<const W: usize, const H: usize> Game<W, H> {
     }
 
     fn handle_input(&mut self) {
-        if event::poll(Duration::from_millis(10)).unwrap() {
-            if let Event::Key(key_event) = event::read().unwrap() {
-                match key_event.code {
-                    KeyCode::Left | KeyCode::Char('a') => {
-                        if !self.check_collision(
-                            self.current_x - 1,
-                            self.current_y,
-                            &self.current_piece.as_ref().unwrap().shape,
-                        ) {
-                            self.current_x -= 1;
-                        }
+        if event::poll(Duration::from_millis(10)).unwrap()
+            && let Event::Key(key_event) = event::read().unwrap()
+        {
+            match key_event.code {
+                KeyCode::Left | KeyCode::Char('a') => {
+                    if !self.check_collision(
+                        self.current_x - 1,
+                        self.current_y,
+                        &self.current_piece.as_ref().unwrap().shape,
+                    ) {
+                        self.current_x -= 1;
                     }
-                    KeyCode::Right | KeyCode::Char('d') => {
-                        if !self.check_collision(
-                            self.current_x + 1,
-                            self.current_y,
-                            &self.current_piece.as_ref().unwrap().shape,
-                        ) {
-                            self.current_x += 1;
-                        }
+                }
+                KeyCode::Right | KeyCode::Char('d') => {
+                    if !self.check_collision(
+                        self.current_x + 1,
+                        self.current_y,
+                        &self.current_piece.as_ref().unwrap().shape,
+                    ) {
+                        self.current_x += 1;
                     }
-                    KeyCode::Down | KeyCode::Char('s') => {
-                        if !self.check_collision(
-                            self.current_x,
-                            self.current_y + 1,
-                            &self.current_piece.as_ref().unwrap().shape,
-                        ) {
-                            self.current_y += 1;
-                        } else {
-                            self.place_piece();
-                        }
-                    }
-                    KeyCode::Enter | KeyCode::Char(' ') => {
-                        while !self.check_collision(
-                            self.current_x,
-                            self.current_y + 1,
-                            &self.current_piece.as_ref().unwrap().shape,
-                        ) {
-                            self.current_y += 1;
-                        }
+                }
+                KeyCode::Up | KeyCode::Char('w') => self.rotate_piece_right(),
+                KeyCode::Down | KeyCode::Char('s') => self.rotate_piece_left(),
+                KeyCode::Char('j') => {
+                    if !self.check_collision(
+                        self.current_x,
+                        self.current_y + 1,
+                        &self.current_piece.as_ref().unwrap().shape,
+                    ) {
+                        self.current_y += 1;
+                    } else {
                         self.place_piece();
                     }
-                    KeyCode::Char('w') => self.rotate_piece_right(),
-                    KeyCode::Esc => process::exit(1),
-                    _ => (),
                 }
+                KeyCode::Enter | KeyCode::Char(' ') => {
+                    while !self.check_collision(
+                        self.current_x,
+                        self.current_y + 1,
+                        &self.current_piece.as_ref().unwrap().shape,
+                    ) {
+                        self.current_y += 1;
+                    }
+                    self.place_piece();
+                }
+                KeyCode::Esc => process::exit(1),
+                _ => (),
             }
         }
     }
@@ -252,6 +256,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
         let drop_rate = Duration::from_millis(500);
 
         let desk = Draw::new();
+        execute!(stdout(), Clear(ClearType::All)).unwrap();
 
         self.new_game();
 
@@ -259,7 +264,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
             self.handle_input();
 
             if last_tick.elapsed() >= tick_rate {
-                desk.draw(
+                let _ = desk.draw(
                     self.board,
                     &self.current_piece.as_ref().unwrap().shape,
                     self.score,
