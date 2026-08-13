@@ -13,13 +13,14 @@ use std::{
 use crate::draw::Draw;
 
 #[derive(Clone, Copy)]
-struct Piece {
-    shape: [[u8; 4]; 4],
-    size: usize,
+pub struct Piece {
+    pub shape: [[u8; 4]; 4],
+    index: u8,
+    pub size: usize,
 }
 
 impl Piece {
-    pub fn new(piece: &[&[u8]], size: usize) -> Self {
+    pub fn new(piece: &[&[u8]], size: usize, index: u8) -> Self {
         let mut shape = [[0u8; 4]; 4];
         for row in 0..piece.len() {
             for col in 0..piece[0].len() {
@@ -27,40 +28,44 @@ impl Piece {
             }
         }
 
-        Self { shape, size }
+        Self { shape, size, index }
     }
 }
 
 pub struct Game<const W: usize, const H: usize> {
-    board: [[u8; W]; H],
-    width: usize,
-    height: usize,
-    pieces: [Piece; 7],
-    current_piece: Option<Piece>,
-    current_color: u8,
-    current_x: i32,
-    current_y: i32,
-    score: u128,
-    game_over: bool,
+    pub board: [[u8; W]; H],
+    pub width: usize,
+    pub height: usize,
+    pub pieces: [Piece; 7],
+    pub pieces_buffer: [Piece; 3],
+    pub current_piece: Option<Piece>,
+    pub current_color: u8,
+    pub current_x: i32,
+    pub current_y: i32,
+    pub score: u128,
+    pub game_over: bool,
 }
 
 impl<const W: usize, const H: usize> Game<W, H> {
     pub fn new() -> Self {
         let pieces: [Piece; 7] = [
-            Piece::new(&[&[1, 1, 1, 1]], 4),
-            Piece::new(&[&[1, 1], &[1, 1]], 2),
-            Piece::new(&[&[0, 1, 0], &[1, 1, 1]], 3),
-            Piece::new(&[&[0, 1, 1], &[1, 1, 0]], 3),
-            Piece::new(&[&[1, 1, 0], &[0, 1, 1]], 3),
-            Piece::new(&[&[1, 0, 0], &[1, 1, 1]], 3),
-            Piece::new(&[&[0, 0, 1], &[1, 1, 1]], 3),
+            Piece::new(&[&[1, 1, 1, 1]], 4, 0),
+            Piece::new(&[&[1, 1], &[1, 1]], 2, 1),
+            Piece::new(&[&[0, 1, 0], &[1, 1, 1]], 3, 2),
+            Piece::new(&[&[0, 1, 1], &[1, 1, 0]], 3, 3),
+            Piece::new(&[&[1, 1, 0], &[0, 1, 1]], 3, 4),
+            Piece::new(&[&[1, 0, 0], &[1, 1, 1]], 3, 5),
+            Piece::new(&[&[0, 0, 1], &[1, 1, 1]], 3, 6),
         ];
+
+        let pieces_buffer = [Piece::new(&[&[0]], 0, 7); 3];
 
         Self {
             board: [[0u8; W]; H],
             width: W,
             height: H,
             pieces,
+            pieces_buffer,
             current_piece: None,
             current_color: 0,
             current_x: 0,
@@ -100,11 +105,26 @@ impl<const W: usize, const H: usize> Game<W, H> {
     }
 
     fn spawn_piece(&mut self) {
-        let piece_index = random_range(0..self.pieces.len());
-        let piece = self.pieces[piece_index];
-        self.current_color = piece_index as u8 + 1;
+        if self.pieces_buffer[2].shape == [[0; 4]; 4] {
+            for i in 0..3 {
+                let piece_index = random_range(0..self.pieces.len());
+                let piece = self.pieces[piece_index];
+                self.pieces_buffer[i] = piece;
+            }
+        }
+
+        let piece = self.pieces_buffer[0];
+
+        for i in 0..self.pieces_buffer.len() {
+            if i >= 2 { break; }
+            self.pieces_buffer[i] = self.pieces_buffer[i + 1];
+        }
+
+        self.current_color = piece.index + 1;
         self.current_x = self.width as i32 / 2 - 2;
         self.current_y = -1;
+
+        self.pieces_buffer[2] = self.pieces[random_range(0..self.pieces.len())];
 
         if self.check_collision(self.current_x, self.current_y, &piece.shape) {
             self.game_over = true;
@@ -262,14 +282,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
             self.handle_input();
 
             if last_tick.elapsed() >= tick_rate {
-                let _ = desk.draw(
-                    &self.board,
-                    &self.current_piece.as_ref().unwrap().shape,
-                    self.score,
-                    self.current_color,
-                    self.current_x,
-                    self.current_y,
-                );
+                let _ = desk.draw(self);
 
                 last_tick = Instant::now();
             }

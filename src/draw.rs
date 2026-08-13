@@ -1,3 +1,4 @@
+use crate::tetris::{Game, Piece};
 use crossterm::{
     cursor::{Hide, MoveTo},
     queue,
@@ -112,22 +113,102 @@ impl Draw {
         Ok(())
     }
 
+    pub fn draw_next_shapes<W: Write>(&self, stdout: &mut W, buffer: &[Piece; 3]) -> io::Result<()> {
+        let space = 24;
+        let weight = 28;
+        let mut height = 0;
+        queue!(stdout, MoveTo(space, height), Hide)?;
+
+        queue!(stdout, Print(self.top_left))?;
+        for _ in 0..weight {
+            queue!(stdout, Print(self.top))?;
+        }
+        queue!(stdout, Print(self.top_right), Print("\r\n"))?;
+
+        let mut one_string = String::new();
+        let mut another_string = String::new();
+
+        for piece in buffer {
+            let mut shape = piece.shape.iter();
+
+            one_string.push(' ');
+            for cell in shape.next().unwrap() {
+                let ch = if cell != &0 {
+                    "██"
+                } else {
+                    "  "
+                };
+                one_string.push_str(ch);
+            }
+
+            another_string.push(' ');
+            for cell in shape.next().unwrap() {
+                let ch = if cell != &0 {
+                    "██"
+                } else {
+                    "  "
+                };
+                another_string.push_str(ch);
+            }
+        }
+        one_string.push(' ');
+        another_string.push(' ');
+
+        height += 1;
+        queue!(stdout, MoveTo(space, height), Hide)?;
+        queue!(stdout, Print(self.left))?;
+        for _ in 0..weight {
+            queue!(stdout, Print(" "))?;
+        }
+
+        queue!(stdout, Print(self.right))?;
+        height += 1;
+        queue!(stdout, MoveTo(space, height), Hide)?;
+        queue!(stdout, Print(self.left))?;
+        queue!(stdout, Print(one_string), Print(self.right), Print("\r\n"))?;
+
+        height += 1;
+        queue!(stdout, MoveTo(space, height), Hide)?;
+        queue!(stdout, Print(self.left))?;
+        queue!(stdout, Print(another_string), Print(self.right), Print("\r\n"))?;
+
+        height += 1;
+        queue!(stdout, MoveTo(space, height), Hide)?;
+        queue!(stdout, Print(self.left))?;
+        for _ in 0..weight {
+            queue!(stdout, Print(" "))?;
+        }
+        queue!(stdout, Print(self.right))?;
+
+        height += 1;
+        queue!(stdout, MoveTo(space, height), Hide)?;
+        queue!(stdout, Print(self.bottom_left))?;
+        for _ in 0..weight {
+            queue!(stdout, Print(self.bottom))?;
+        }
+        queue!(stdout, Print(self.bottom_right), Print("\r\n"))?;
+        Ok(())
+    }
+
     pub fn draw<const W: usize, const H: usize>(
         &self,
-        board: &[[u8; W]; H],
-        piece: &[[u8; 4]; 4],
-        score: u128,
-        color: u8,
-        x: i32,
-        y: i32,
+        tetris: &Game<W, H>,
     ) -> io::Result<()> {
         let stdout = io::stdout();
         let mut handle = io::BufWriter::new(stdout.lock());
+
+        let board: &[[u8; W]; H] = &tetris.board;
+        let piece: &[[u8; 4]; 4] = &tetris.current_piece.as_ref().unwrap().shape;
+        let score: u128 = tetris.score;
+        let color: u8 = tetris.current_color;
+        let x: i32 = tetris.current_x;
+        let y: i32 = tetris.current_y;
 
         let mut draw_board = *board;
         self.overlay_piece(&mut draw_board, piece, x, y, color);
 
         let width = W;
+        self.draw_next_shapes(&mut handle, &tetris.pieces_buffer)?;
         self.draw_top(&mut handle, width)?;
         self.draw_center(&mut handle, &draw_board)?;
         self.draw_bottom(&mut handle, width)?;
