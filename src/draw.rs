@@ -113,7 +113,7 @@ impl Draw {
         Ok(())
     }
 
-    pub fn draw_next_shapes<W: Write>(&self, stdout: &mut W, buffer: &[Piece; 3]) -> io::Result<()> {
+    pub fn draw_next_shapes<W: Write>(&self, stdout: &mut W, buffer: &[Piece]) -> io::Result<()> {
         let space = 24;
         let weight = 28;
         let mut height = 0;
@@ -125,52 +125,40 @@ impl Draw {
         }
         queue!(stdout, Print(self.top_right), Print("\r\n"))?;
 
-        let mut one_string = String::new();
-        let mut another_string = String::new();
-
-        for piece in buffer {
-            let mut shape = piece.shape.iter();
-
-            one_string.push(' ');
-            for cell in shape.next().unwrap() {
-                let ch = if cell != &0 {
-                    "██"
-                } else {
-                    "  "
-                };
-                one_string.push_str(ch);
-            }
-
-            another_string.push(' ');
-            for cell in shape.next().unwrap() {
-                let ch = if cell != &0 {
-                    "██"
-                } else {
-                    "  "
-                };
-                another_string.push_str(ch);
-            }
-        }
-        one_string.push(' ');
-        another_string.push(' ');
-
         height += 1;
         queue!(stdout, MoveTo(space, height), Hide)?;
         queue!(stdout, Print(self.left))?;
         for _ in 0..weight {
             queue!(stdout, Print(" "))?;
         }
-
         queue!(stdout, Print(self.right))?;
-        height += 1;
-        queue!(stdout, MoveTo(space, height), Hide)?;
-        queue!(stdout, Print(self.left))?;
-        queue!(stdout, Print(one_string), Print(self.right), Print("\r\n"))?;
 
-        height += 1;
-        queue!(stdout, MoveTo(space, height), Hide)?;
-        queue!(stdout, Print(self.left))?;
-        queue!(stdout, Print(another_string), Print(self.right), Print("\r\n"))?;
+        for row_idx in 0..2 {
+            height += 1;
+            queue!(stdout, MoveTo(space, height), Hide)?;
+            queue!(stdout, Print(self.left))?;
+            queue!(stdout, Print(" "))?;
+            
+            for (idx, piece) in buffer.iter().enumerate() {
+                if idx >= 3 { break; }
+                for col in 0..4 {
+                    if piece.shape[row_idx][col] == 0 {
+                        queue!(stdout, Print("  "))?;
+                    } else {
+                        queue!(
+                            stdout,
+                            SetForegroundColor(self.get_color(piece.index + 1)),
+                            Print("██"),
+                            ResetColor
+                        )?;
+                    }
+                }
+                queue!(stdout, Print(" "))?;
+            }
+
+            queue!(stdout, Print(self.right), Print("\r\n"))?;
+        }
+
 
         height += 1;
         queue!(stdout, MoveTo(space, height), Hide)?;
@@ -213,16 +201,29 @@ impl Draw {
         self.draw_center(&mut handle, &draw_board)?;
         self.draw_bottom(&mut handle, width)?;
 
+        let control_height = 15;
+        let score_height = 7;
+        let space = 26;
         queue!(
             handle,
-            Print(format!("\r\n  Счёт: {}\r\n", score)),
-            Print("\r\n  Управление:\r\n"),
-            Print("  ← → или A D - движение\r\n"),
-            Print("  ↑ или W - поворот вправо\r\n"),
-            Print("  ↓ или S - поворот влево\r\n"),
-            Print("  J - ускорение падения \r\n"),
-            Print("  Пробел - сброс\r\n"),
-            Print("  Esc - выход\r\n")
+            MoveTo(space, score_height), Hide,
+            SetForegroundColor(Color::Green),
+            Print(format!("Счёт: {}\r\n", score)),
+            ResetColor,
+            MoveTo(space, control_height), Hide,
+            Print("Управление:\r\n"),
+            MoveTo(space, control_height + 1), Hide,
+            Print("← → - движение\r\n"),
+            MoveTo(space, control_height + 2), Hide,
+            Print("X - поворот вправо\r\n"),
+            MoveTo(space, control_height + 3), Hide,
+            Print("Z - поворот влево\r\n"),
+            MoveTo(space, control_height + 4), Hide,
+            Print("↓ - ускорение падения \r\n"),
+            MoveTo(space, control_height + 5), Hide,
+            Print("Пробел - жёсткое падение\r\n"),
+            MoveTo(space, control_height + 6), Hide,
+            Print("Esc - выход\r\n")
         )?;
 
         handle.flush()?;
