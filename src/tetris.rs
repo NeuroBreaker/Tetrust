@@ -15,8 +15,8 @@ use crate::draw::Draw;
 #[derive(Clone, Copy)]
 pub struct Piece {
     pub shape: [[u8; 4]; 4],
-    index: u8,
     pub size: usize,
+    pub index: u8,
 }
 
 impl Piece {
@@ -37,7 +37,7 @@ pub struct Game<const W: usize, const H: usize> {
     pub width: usize,
     pub height: usize,
     pub pieces: [Piece; 7],
-    pub pieces_buffer: [Piece; 3],
+    pub pieces_buffer: [Piece; 14],
     pub current_piece: Option<Piece>,
     pub current_color: u8,
     pub current_x: i32,
@@ -58,7 +58,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
             Piece::new(&[&[0, 0, 1], &[1, 1, 1]], 3, 6),
         ];
 
-        let pieces_buffer = [Piece::new(&[&[0]], 0, 7); 3];
+        let pieces_buffer = [Piece::new(&[&[0]], 0, 0); 14];
 
         Self {
             board: [[0u8; W]; H],
@@ -105,26 +105,51 @@ impl<const W: usize, const H: usize> Game<W, H> {
     }
 
     fn spawn_piece(&mut self) {
-        if self.pieces_buffer[2].shape == [[0; 4]; 4] {
-            for i in 0..3 {
-                let piece_index = random_range(0..self.pieces.len());
-                let piece = self.pieces[piece_index];
+        if self.pieces_buffer[0].shape == [[0; 4]; 4] {
+            let mut storage = self.pieces;
+
+            for i in 0..7 {
+                let mut piece_index = random_range(0..self.pieces.len());
+
+                while storage[piece_index].shape == [[0; 4]; 4] {
+                    piece_index = random_range(0..self.pieces.len());
+                }
+
+                let piece = storage[piece_index];
+                storage[piece_index] = Piece::new(&[&[0]], 0, 0);
                 self.pieces_buffer[i] = piece;
             }
         }
 
+        if self.pieces_buffer[7].shape == [[0; 4]; 4] {
+            let mut storage = self.pieces;
+
+            for i in 0..7 {
+                let mut piece_index = random_range(0..self.pieces.len());
+
+                while storage[piece_index].shape == [[0; 4]; 4] {
+                    piece_index = random_range(0..self.pieces.len());
+                }
+
+                let piece = storage[piece_index];
+                storage[piece_index] = Piece::new(&[&[0]], 0, 0);
+                self.pieces_buffer[7 + i] = piece;
+            }
+        }
         let piece = self.pieces_buffer[0];
 
         for i in 0..self.pieces_buffer.len() {
-            if i >= 2 { break; }
+            if i >= 13 { break; }
             self.pieces_buffer[i] = self.pieces_buffer[i + 1];
+
+            if i == 12 || self.pieces_buffer[i + 2].shape == [[0; 4]; 4] {
+                self.pieces_buffer[i + 1].shape = [[0; 4]; 4]; 
+            }
         }
 
         self.current_color = piece.index + 1;
         self.current_x = self.width as i32 / 2 - 2;
         self.current_y = -1;
-
-        self.pieces_buffer[2] = self.pieces[random_range(0..self.pieces.len())];
 
         if self.check_collision(self.current_x, self.current_y, &piece.shape) {
             self.game_over = true;
@@ -220,7 +245,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
             && let Event::Key(key_event) = event::read().unwrap()
         {
             match key_event.code {
-                KeyCode::Left | KeyCode::Char('a') => {
+                KeyCode::Left => {
                     if !self.check_collision(
                         self.current_x - 1,
                         self.current_y,
@@ -229,7 +254,7 @@ impl<const W: usize, const H: usize> Game<W, H> {
                         self.current_x -= 1;
                     }
                 }
-                KeyCode::Right | KeyCode::Char('d') => {
+                KeyCode::Right => {
                     if !self.check_collision(
                         self.current_x + 1,
                         self.current_y,
@@ -238,9 +263,9 @@ impl<const W: usize, const H: usize> Game<W, H> {
                         self.current_x += 1;
                     }
                 }
-                KeyCode::Up | KeyCode::Char('w') => self.rotate_piece_right(),
-                KeyCode::Down | KeyCode::Char('s') => self.rotate_piece_left(),
-                KeyCode::Char('j') => {
+                KeyCode::Char('x') => self.rotate_piece_right(),
+                KeyCode::Char('z') => self.rotate_piece_left(),
+                KeyCode::Down => {
                     if !self.check_collision(
                         self.current_x,
                         self.current_y + 1,
